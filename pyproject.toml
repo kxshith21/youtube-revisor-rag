@@ -1,0 +1,28 @@
+[project]
+name = "yt-revisor"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "cachetools>=8.0.0",
+    "fastapi>=0.162.7",
+    "google-genai>=3.3.0",
+    "groq>=1.7.0",
+    "httpx>=0.28.1",
+    "numpy>=2.4.6",
+    "pydantic>=2",
+    "pydantic-settings>=2.16.3",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.5.0",
+    "python-dotenv>=1.2.4",
+    "qdrant-client>=1.20.0",
+    "sentence-transformers>=6.3.0",
+    "slowapi>=0.1.10",
+    "sse-starlette>=3.7.0",
+    "tenacity>=9.1.4",
+    "tqdm>=4.70.1",
+    "uvicorn[standard]>=0.54.0",
+    "youtube-transcript-api>=1.0",
+    "yt-dlp>=2026.10.26",
+]

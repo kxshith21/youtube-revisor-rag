@@ -1,0 +1,24 @@
+# Local-only artifacts
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+.gitignore
+
+# Secrets and local environment
+.env
+
+# Data not needed by the API runtime
+tests/
+transcripts/
+chunks/
+db/
+logs/
+
+# Docs / editor files
+.vscode/
+.idea/
+.DS_Store

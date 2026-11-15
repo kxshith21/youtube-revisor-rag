@@ -1,0 +1,24 @@
+# --- Pipeline ---
+yt-dlp
+youtube-transcript-api
+sentence-transformers
+qdrant-client
+tqdm
+cachetools          # TTL caches for /ask, /topics, /videos
+pytest
+pytest-asyncio
+httpx               # FastAPI TestClient + HTTP calls
+
+# --- API ---
+fastapi
+uvicorn[standard]
+pydantic-settings
+slowapi
+sse-starlette
+python-dotenv
+
+# --- LLM providers (scripts/generate.py) ---
+groq            # default provider (LLM_PROVIDER=groq)
+# openai        # optional: LLM_PROVIDER=openai / ollama (local models via OPENAI_BASE_URL)
+# anthropic     # optional: LLM_PROVIDER=anthropic
+faster-whisper
