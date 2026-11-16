@@ -64,6 +64,99 @@ Question --> query embedding --> retrieve.py ----------+
 
 Chunk windows target 78 seconds with 12 seconds of overlap. Chunk text is prefixed with the video title for embedding. Qdrant stores 384-dimensional cosine vectors, uses HNSW, and indexes `domain`, `video_id`, and `start` payload fields.
 
+### Architecture and data pipeline
+
+```mermaid
+flowchart TD
+    subgraph SRC["Sources"]
+        A1["Padho with Pratyush<br/>DSA patterns playlist"]
+        A2["Gaurav Sen<br/>system design playlist"]
+    end
+
+    subgraph ING["Ingestion - offline"]
+        B1["youtube-transcript-api"]
+        B2["yt-dlp subtitle fallback"]
+        B3["Optional faster-whisper fallback<br/>DSA recovery pipeline"]
+        C["transcripts/domain/video_id.json<br/>text, start, duration"]
+        D["Clean and chunk<br/>78s windows, 12s overlap,<br/>title prefix"]
+        E["chunks/domain.jsonl"]
+        F["Embed with sentence-transformers<br/>bge-small-en-v1.5, 384 dims"]
+    end
+
+    G[("Qdrant<br/>HNSW, cosine,<br/>payload filter on domain")]
+
+    subgraph API["FastAPI backend - root routes"]
+        H["/search and /ask/stream"]
+        I["Retriever<br/>query embedding with BGE prefix,<br/>score threshold, overlap merge, MMR"]
+        J["LLM client<br/>Groq, OpenAI-compatible, or Anthropic"]
+        K["Citation validation<br/>sources built from retrieval results"]
+    end
+
+    subgraph UI["Next.js frontend"]
+        L["Chat panel<br/>streamed answer with citations"]
+        M["YouTube player<br/>seek to timestamp"]
+        N["Clickable timestamp list"]
+    end
+
+    A1 --> B1
+    A2 --> B1
+    B1 -->|"captions unavailable or blocked"| B2
+    B2 --> C
+    B3 -.->|"optional DSA recovery"| C
+    B1 --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+
+    L -->|"question"| H
+    H --> I
+    I -->|"query vector"| G
+    G -->|"top chunks"| I
+    I -->|"context blocks"| J
+    I -.->|"no results: skip LLM"| H
+    J --> K
+    K -->|"SSE: tokens and sources"| L
+    L --> N
+    N -->|"click"| M
+```
+
+### What happens when a user asks a question
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant UI as Next.js UI
+    participant API as FastAPI
+    participant R as Retriever
+    participant Q as Qdrant
+    participant L as LLM (Groq, OpenAI-compatible, or Anthropic)
+    participant P as YouTube Player
+
+    U->>UI: Ask "what is sliding window"
+    UI->>API: POST /ask/stream
+    API->>R: search(query, domain, top_k)
+    R->>R: embed query with BGE prefix
+    R->>Q: query points with domain filter
+    Q-->>R: candidate chunks with cosine scores
+    R->>R: threshold, overlap merge, MMR
+
+    alt no relevant chunks
+        R-->>API: empty list
+        API-->>UI: "No relevant content found in the indexed videos."
+    else chunks found
+        R-->>API: numbered context blocks
+        API->>L: system prompt, context, question
+        L-->>API: streamed answer with citation markers
+        API->>API: validate citations and build sources
+        API-->>UI: SSE tokens, then sources event
+        UI-->>U: answer with clickable citations
+        U->>UI: click timestamp
+        UI->>P: seek to timestamp
+        P-->>U: video plays at that moment
+    end
+```
+
 ## 4. Current coverage
 
 Counts below were read from the local Qdrant collection `youtube_reviser` on 2026-11-15.
