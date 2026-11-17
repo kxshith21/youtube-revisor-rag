@@ -22,3 +22,7 @@ groq            # default provider (LLM_PROVIDER=groq)
 # openai        # optional: LLM_PROVIDER=openai / ollama (local models via OPENAI_BASE_URL)
 # anthropic     # optional: LLM_PROVIDER=anthropic
 faster-whisper
+
+# --- Evaluation harness (eval/) ---
+pydantic>=2     # golden schema + judge JSON validation
+google-genai    # optional judge provider: --judge-provider gemini

@@ -1,0 +1,14 @@
+# Evaluation artifacts and secrets
+.cache/
+results/*
+!results/.gitkeep
+
+# Generated dataset files (keep data/manual_seed.jsonl tracked)
+data/golden.jsonl
+data/golden_draft.jsonl
+data/review.csv
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/

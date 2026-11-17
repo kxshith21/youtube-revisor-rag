@@ -159,16 +159,17 @@ sequenceDiagram
 
 ## 4. Current coverage
 
-Counts below were read from the local Qdrant collection `youtube_reviser` on 2026-11-15.
+Counts were verified on 2026-11-17 against the local Qdrant collection `youtube_reviser` and the `chunks/*.jsonl` files. Every locally downloaded transcript has been chunked and embedded, so the collection holds the complete local corpus for both domains.
 
-| Domain | Indexed videos | Indexed chunks |
-|---|---:|---:|
-| DSA | 126 / 405* | 4,108 |
-| System Design | 5 / 26 | 47 |
+| Domain | Source | Indexed videos | Indexed chunks |
+|---|---|---:|---:|
+| DSA | Padho with Pratyush — DSA Patterns | 126 | 4,108 |
+| System Design | Gaurav Sen | 24 | 357 |
+| **Total** | | **150** | **4,465** |
 
-Some playlist videos are not indexed because caption requests have been blocked or rate-limited; the repository's failure logs include these errors. As a result, a topic may return the not-found response.
+The collection contains exactly 4,465 points, split 4,108 DSA and 357 System Design, with 384-dimensional cosine vectors, HNSW indexing, and payload indexes on `domain`, `video_id`, and `start`.
 
-*The DSA denominator 405 is derived from 126 local transcript IDs plus 279 distinct queued IDs. This conflicts with the 316 total in the original README request; confirm the authoritative current playlist total before publishing. The System Design denominator 26 reconciles to 17 local transcript IDs plus 9 queued IDs.*
+The indexed corpus is complete: all 126 locally downloaded DSA videos and all 24 System Design videos are chunked and embedded. The System Design playlist itself has 26 videos; the 2 that are not indexed could not be ingested (one has captions disabled and one was skipped by the downloader). Questions answered only by those two videos return the not-found response.
 
 ## 5. Quick start
 
@@ -371,12 +372,61 @@ Pass `"domain": null` or omit `domain` to search both domains.
 
 ## 9. Evaluation
 
-The checked-in Python tests exercise retrieval and citation behavior with fakes; no live question-to-video top-3 evaluation or timestamp-click results are recorded yet.
+The `eval/` folder measures the existing RAG pipeline end to end without modifying it: retrieval quality (are the right video moments retrieved?), generation quality (faithfulness, relevance, correctness, citation accuracy), abstention, latency, and token usage. It runs a reviewed golden set with stratified `dev`/`test` splits and scores answers with an LLM judge (`groq/openai/gpt-oss-120b`) that is a different model from the generator (`groq/openai/gpt-oss-20b`). Metric definitions, tuning guidance, and every command are in [`eval/README.md`](eval/README.md).
 
-| Question | Correct video in top 3? | Timestamp link clicked and verified? |
-|---|---|---|
-| TODO: add a DSA evaluation question | TODO | TODO |
-| TODO: add a System Design evaluation question | TODO | TODO |
+```powershell
+# Offline tests (no network or keys)
+.\.venv\Scripts\python.exe -m pytest eval\tests -q
+
+# Evaluate on dev, then re-render reports from the saved per-question journal
+.\.venv\Scripts\python.exe eval\run_eval.py --split dev --no-mmr --config-name dev-tuned --yes
+.\.venv\Scripts\python.exe eval\report.py eval\results\<run-dir>
+```
+
+### Current results
+
+The latest numbers were recorded locally on 2026-11-16 on the `dev` split with `top_k=5`, score threshold `0.35`, MMR off, reranker off, minimum overlap 10 s, and direct (in-process) calls. Index snapshot: 126 DSA videos / 4,108 chunks and 24 System Design videos / 357 chunks.
+
+**Partial dev-tuned run: 17 of 65 questions answered, 48 errors.** The run stopped when the Groq daily token limit was exhausted (`429` TPD errors). Retrieval is measured on 17 answerable questions and generation on 16 judged answers; no off-topic question completed, so abstention accuracy is not available. These are preliminary results, not the final evaluation.
+
+| Group | Metric | Score | 95% CI | n | Status |
+|---|---|---:|---|---:|---|
+| Retrieval | Precision@5 | 17.6% | 12.9 - 21.2% | 17 | Good vs 20.0% ceiling |
+| Retrieval | Recall@5 | 82.4% | 64.7 - 100.0% | 17 | OK |
+| Retrieval | Video Recall | 94.1% | 82.4 - 100.0% | 17 | Good |
+| Retrieval | Hit Rate@5 | 82.4% | 64.7 - 100.0% | 17 | OK |
+| Retrieval | Mean Reciprocal Rank | 65.2% | 47.0 - 81.4% | 17 | Needs work |
+| Retrieval | nDCG@5 | 72.5% | 54.6 - 90.5% | 17 | OK |
+| Generation | Faithfulness | 77.3% | 67.1 - 86.8% | 16 | OK |
+| Generation | Answer Relevance | 98.4% | 95.3 - 100.0% | 16 | Good |
+| Generation | Correctness | 77.1% | 63.5 - 90.6% | 16 | OK |
+| Generation | Citation Accuracy | 84.4% | 65.6 - 100.0% | 16 | OK |
+| Abstention | Abstention Accuracy | - | - | 0 | Not measured |
+| Abstention | False Refusal Rate | 0.0% | 0.0 - 0.0% | 17 | Good |
+
+| Performance | Mean | 95% CI | n |
+|---|---:|---|---:|
+| Retrieval latency | 289.0 ms | 155.3 - 528.4 ms | 17 |
+| Generation latency | 3,081.3 ms | 1,685.7 - 4,596.6 ms | 17 |
+| Total latency | 3,412.4 ms | 1,997.9 - 4,944.5 ms | 17 |
+| Mean tokens/question (all 65, errors included) | 2,461 | - | 65 |
+
+What the numbers say:
+
+- **Ranking, not coverage, is the retrieval weak spot.** The right video is retrieved 94.1% of the time and a gold moment appears in the top five 82.4% of the time, but MRR is 65.2%, so relevant chunks are often not near the top. That is the first thing to improve (reranker, or `--no-mmr`).
+- **Precision@5 is near its ceiling.** Most golden questions have one gold moment, so at `top_k=5` a perfect retriever that fills all five slots scores 20.0%. The run's 17.6% is rated against that ceiling, not against 100%, and is not evidence of padding.
+- **Faithfulness is the weakest generation metric** at 77.3% against a 90% guidance target: some answer claims are not supported by the retrieved context. Correctness (77.1%) and citation accuracy (84.4%) have similar headroom; answer relevance (98.4%) is strong.
+- **The 48 errors are quota failures, not pipeline bugs.** They are transport/rate-limit exceptions recorded as data, excluded from the metric `n`, and retried by `--resume` once quota allows.
+- **Small samples.** All CIs are wide with 16-17 questions; treat differences under roughly 5 points as noise.
+
+Two earlier smoke runs are also saved locally. A complete 10-question, retrieval-only `dev` smoke run (MMR on, no judge, 10/10 ok) scored Precision@5 12.0%, Recall@5 60.0%, Video Recall 90.0%, Hit@5 60.0%, MRR 53.3%, and nDCG@5 55.0%. A one-question full-pipeline smoke run scored Precision@5 20.0%, Recall@5 100%, Faithfulness 50.0%, Answer Relevance 100%, Correctness 83.3%, and Citation Accuracy 100%; a single question is an anecdote, not a result.
+
+The final untouched `test` split has **not** been run yet. After the Groq quota resets, resume the dev run and then perform the one-time test run:
+
+```powershell
+.\.venv\Scripts\python.exe eval\run_eval.py --split dev --no-mmr --config-name dev-tuned --resume --yes
+.\.venv\Scripts\python.exe eval\run_eval.py --split test --no-mmr --config-name test-final --yes
+```
 
 ## 10. Known limitations and troubleshooting
 
@@ -466,12 +516,3 @@ This final screenshot shows the full end-user experience:
 This is the complete output state: the user gets a grounded answer, can inspect evidence sources, watch the original video excerpt, and continue the conversation naturally.
 
 In summary, every screenshot demonstrates the same core output pattern: the app finds relevant video moments, surfaces them as ranked sources, and generates a concise answer that is traceable back to the original educational content.
-
-## TODO: verify before publishing
-
-- Confirm the DSA playlist denominator: local data indicates 405 IDs, while the initial request specified 316.
-- Update the DSA downloader scripts to use the Padho with Pratyush playlist URL; their source URL has not yet been changed.
-- Add the MIT `LICENSE` file with the owner's name and year.
-- Add the maintainer's name and GitHub/LinkedIn or project links.
-- Run a real evaluation set and record whether expected videos appear in the top three and timestamp links work.
-- Gemini is not wired into the current generator; implement or remove the unused `google-genai` dependency if Gemini support is intended.
