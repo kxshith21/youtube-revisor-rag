@@ -414,9 +414,61 @@ Contributions are welcome. Open an issue describing the problem or proposed chan
 
 **Acknowledgements:** Padho with Pratyush and Gaurav Sen for the educational videos; the maintainers of FastAPI, Qdrant, sentence-transformers, and Next.js.
 
+## 14. UI walkthrough and output explanations
+
+The following screenshots show the main user flow of the application: the user asks a question, the app retrieves the most relevant transcript chunks, generates a grounded answer, and displays the supporting video segment and source list for verification.
+
+### Screenshot 1: Dynamic programming answer output
+
+![Dynamic programming answer screenshot](docs/screenshots/dynamic-programming-answer.png)
+
+This is the main answer view for a DSA question on dynamic programming. The left panel contains:
+
+- The final generated answer with a clear heading: **Dynamic programming (DP)**
+- A short explanation of the concept and why it matters
+- A compact **Key points** list with numbered bullet explanations
+- A **Jump to latest** button that lets the user move directly to the top-ranked supporting source
+- A bottom input box for follow-up questions
+
+The app is presenting a concise explanation and is already signaling that the answer is grounded in video evidence rather than a generic model response.
+
+### Screenshot 2: Video playback and exact match source
+
+![Dynamic programming video playback screenshot](docs/screenshots/dynamic-programming-video.png)
+
+This screenshot shows the answer and the matching YouTube video player side by side. The user has selected the source:
+
+- **DP in 15 Days Episode 3: Climbing Stairs | Learn...**
+- timestamp around **11:36**
+
+The right panel confirms that the answer is not just text generated from memory; it is tied to a specific video moment. The **Sources in this answer** section lists the top retrieved matches in ranked order, letting the user verify which segments were used to produce the answer. This is a key trust feature of the app: each answer can be checked against the original teaching material.
+
+### Screenshot 3: System design answer with evidence panel
+
+![System design answer screenshot](docs/screenshots/system-design-answer.png)
+
+This example shows the same workflow applied to a **system design** question about **microservices**. The left panel contains a structured answer explaining the concept, benefits, and trade-offs. The right panel plays the corresponding lecture segment and includes the source list from the relevant videos.
+
+The important output here is that the app can answer across multiple domains—DSA and system design—with the same evidence-led interface. The source cards highlight the retrieved transcript chunks and let the user quickly open the relevant moment in the original material.
+
+### Screenshot 4: Final UI state showing answer, sources, and input controls
+
+![Final UI screenshot](docs/screenshots/final-ui.png)
+
+This final screenshot shows the full end-user experience:
+
+- Top bar with **New chat** and **Dark mode** controls
+- Main answer panel on the left with the final response to a system design prompt
+- A source list on the right showing the ranked transcript references used to generate the answer
+- Embedded video preview or playback panel for the selected source
+- Input box at the bottom where the user can ask the next follow-up question
+
+This is the complete output state: the user gets a grounded answer, can inspect evidence sources, watch the original video excerpt, and continue the conversation naturally.
+
+In summary, every screenshot demonstrates the same core output pattern: the app finds relevant video moments, surfaces them as ranked sources, and generates a concise answer that is traceable back to the original educational content.
+
 ## TODO: verify before publishing
 
-- Add the demo screenshot or GIF.
 - Confirm the DSA playlist denominator: local data indicates 405 IDs, while the initial request specified 316.
 - Update the DSA downloader scripts to use the Padho with Pratyush playlist URL; their source URL has not yet been changed.
 - Add the MIT `LICENSE` file with the owner's name and year.
